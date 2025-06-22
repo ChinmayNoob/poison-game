@@ -1,103 +1,244 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { FaHeart, FaRandom, FaUsers, FaPlay, FaCopy } from "react-icons/fa";
+import { toast, Toaster } from "sonner";
 import Image from "next/image";
 
-export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+export default function HomePage() {
+  const router = useRouter();
+  const [customRoomId, setCustomRoomId] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const createRandomRoom = () => {
+    setIsLoading(true);
+    const roomId = Math.random().toString(36).substr(2, 6).toUpperCase();
+    router.push(`/room/${roomId}`);
+  };
+
+  const createCustomRoom = () => {
+    if (!customRoomId.trim()) {
+      toast.error("Please enter a room name");
+      return;
+    }
+
+    const sanitizedId = customRoomId.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (sanitizedId.length < 3) {
+      toast.error("Room name must be at least 3 characters");
+      return;
+    }
+
+    setIsLoading(true);
+    router.push(`/room/${sanitizedId}`);
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      createCustomRoom();
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-400 via-pink-400 to-red-400 p-4 overflow-x-hidden">
+      {/* Animated Background Elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-20 left-10 animate-bounce delay-1000">
+          <FaHeart className="text-pink-300 opacity-20" size={60} />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        <div className="absolute top-40 right-20 animate-pulse delay-2000">
+          <FaHeart className="text-purple-300 opacity-15" size={40} />
+        </div>
+        <div className="absolute bottom-32 left-20 animate-bounce delay-3000">
+          <FaHeart className="text-red-300 opacity-25" size={50} />
+        </div>
+        <div className="absolute bottom-20 right-10 animate-pulse">
+          <FaHeart className="text-pink-200 opacity-20" size={35} />
+        </div>
+      </div>
+
+      <div className="relative z-10 flex items-center justify-center min-h-screen">
+        <div className="w-full max-w-lg space-y-8 px-4 sm:px-0">
+          {/* Header Card */}
+          <Card className="shadow-2xl border-0 bg-white/95 backdrop-blur-sm">
+            <CardHeader className="text-center space-y-4 pb-6">
+              <div className="flex items-center justify-center space-x-4">
+                <div className="relative">
+                  <Image
+                    src="/Heart Eyes.svg"
+                    alt="Heart Eyes"
+                    width={80}
+                    height={60}
+                    className="hover:scale-110 transition-transform duration-300"
+                  />
+                </div>
+                <div>
+                  <CardTitle className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                    Poison Heart
+                  </CardTitle>
+                  <div className="text-sm text-gray-600 font-medium">The Ultimate Strategy Game</div>
+                </div>
+                <div className="relative">
+                  <Image
+                    src="/Winking.svg"
+                    alt="Winking"
+                    width={80}
+                    height={60}
+                    className="hover:scale-110 transition-transform duration-300"
+                  />
+                </div>
+              </div>
+              <p className="text-gray-600 text-sm sm:text-base max-w-md mx-auto leading-relaxed">
+                Outsmart your opponent by choosing the perfect poison heart. Will you be the hunter or the hunted?
+              </p>
+            </CardHeader>
+
+            <CardContent className="space-y-6">
+              {/* Quick Start */}
+              <div className="space-y-3">
+                <Button
+                  onClick={createRandomRoom}
+                  className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 transform hover:scale-105 transition-all duration-200 shadow-lg"
+                  disabled={isLoading}
+                >
+                  <FaPlay className="mr-3" />
+                  {isLoading ? "Starting Game..." : "Quick Play"}
+                  <FaRandom className="ml-3" />
+                </Button>
+                <p className="text-xs text-gray-500 text-center">Instantly create a random room and start playing</p>
+              </div>
+
+              <div className="flex items-center">
+                <hr className="flex-1 border-gray-300" />
+                <span className="px-4 text-gray-500 text-sm font-medium">or create custom room</span>
+                <hr className="flex-1 border-gray-300" />
+              </div>
+
+              {/* Custom Room */}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-gray-700 flex items-center">
+                    <FaUsers className="mr-2 text-purple-500" />
+                    Room Name
+                  </label>
+                  <div className="relative">
+                    <Input
+                      placeholder="Enter room name (e.g., MYGAME)"
+                      value={customRoomId}
+                      onChange={(e) => setCustomRoomId(e.target.value)}
+                      onKeyPress={handleKeyPress}
+                      className="h-12 text-lg uppercase font-mono border-2 border-purple-200 focus:border-purple-400 focus:ring-purple-200"
+                      maxLength={20}
+                    />
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      <FaCopy className="text-gray-400" size={16} />
+                    </div>
+                  </div>
+                </div>
+
+                <Button
+                  onClick={createCustomRoom}
+                  disabled={!customRoomId.trim() || isLoading}
+                  className="w-full h-12 text-lg font-semibold bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 transform hover:scale-105 transition-all duration-200"
+                >
+                  <FaUsers className="mr-2" />
+                  {isLoading ? "Joining..." : "Create/Join Room"}
+                </Button>
+
+                <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                  <p className="text-xs text-blue-700 text-center leading-relaxed">
+                    💡 <strong>Tip:</strong> Share the room name with your friend to play together
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* How to Play */}
+          <Card className="shadow-xl border-0 bg-white/90 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="text-center text-xl font-bold text-gray-800 flex items-center justify-center">
+                <Image
+                  src="/Angry.svg"
+                  alt="Game Rules"
+                  width={40}
+                  height={30}
+                  className="mr-2"
+                />
+                How to Play
+                <Image
+                  src="/Wailing.svg"
+                  alt="Game Rules"
+                  width={40}
+                  height={30}
+                  className="ml-2"
+                />
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 sm:gap-3">
+                <div className="flex items-start space-x-3 p-3 bg-red-50 rounded-lg border border-red-100">
+                  <FaHeart className="text-red-500 mt-1 flex-shrink-0" size={16} />
+                  <div>
+                    <p className="text-sm font-semibold text-red-800">Choose Your Poison</p>
+                    <p className="text-xs text-red-600">Secretly select one heart color as your &quot;poison&quot;</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                  <span className="text-blue-500 mt-1 flex-shrink-0 text-lg">🎯</span>
+                  <div>
+                    <p className="text-sm font-semibold text-blue-800">Take Turns</p>
+                    <p className="text-xs text-blue-600">Alternate picking hearts from the circle</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-3 p-3 bg-yellow-50 rounded-lg border border-yellow-100">
+                  <span className="text-yellow-600 mt-1 flex-shrink-0 text-lg">💀</span>
+                  <div>
+                    <p className="text-sm font-semibold text-yellow-800">Avoid the Poison</p>
+                    <p className="text-xs text-yellow-600">If you pick your opponent&apos;s poison, you lose!</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-3 p-3 bg-green-50 rounded-lg border border-green-100">
+                  <span className="text-green-500 mt-1 flex-shrink-0 text-lg">🏆</span>
+                  <div>
+                    <p className="text-sm font-semibold text-green-800">Victory</p>
+                    <p className="text-xs text-green-600">Make your opponent pick your poison to win!</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 p-4 bg-gradient-to-r from-purple-100 to-pink-100 rounded-lg border border-purple-200">
+                <p className="text-center text-sm font-medium text-purple-800">
+                  🧠 <strong>Strategy Tip:</strong> Mind games and psychology are key to victory!
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Footer */}
+          <div className="text-center text-white/80 text-sm">
+            <p>Made with <FaHeart className="inline text-pink-300 mx-1" size={12} /> by Chinmay</p>
+          </div>
+        </div>
+      </div>
+
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          style: {
+            background: 'white',
+            color: 'black',
+            border: '1px solid #e5e7eb',
+            borderRadius: '12px',
+          },
+        }}
+      />
     </div>
   );
 }
