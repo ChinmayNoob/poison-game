@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { gameActions } from "./game-actions";
-import { GameState } from "./game-store";
 
 // Query keys
 export const gameKeys = {
