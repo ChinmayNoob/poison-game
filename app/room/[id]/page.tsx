@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +13,15 @@ import { NameInput } from "@/components/name-input";
 import { HeartCircle } from "@/components/heart-circle";
 import { SecretHeartSelector } from "@/components/secret-heart-selector";
 import { GameState } from "@/lib/game-store";
-import { gameActions } from "@/lib/game-actions";
+import {
+    useGameState,
+    useRoomExists,
+    useCreateRoom,
+    useJoinRoom,
+    useSelectSecretHeart,
+    usePickHeart,
+    useResetGame
+} from "@/lib/game-queries";
 
 type GameScreen = "name" | "waiting" | "game";
 
@@ -24,15 +32,8 @@ export default function GameRoom() {
 
     const [currentScreen, setCurrentScreen] = useState<GameScreen>("name");
     const [playerId, setPlayerId] = useState("");
-    const [gameState, setGameState] = useState<GameState | null>(null);
     const [selectedSecretHeart, setSelectedSecretHeart] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [isPickingHeart, setIsPickingHeart] = useState(false);
-    const [roomExists, setRoomExists] = useState<boolean | null>(null);
     const [lastGamePhase, setLastGamePhase] = useState<string>("");
-
-    // Use ref to avoid stale closure in SSE callback
-    const lastGamePhaseRef = useRef<string>("");
 
     // Generate player ID once
     useEffect(() => {
@@ -41,98 +42,50 @@ export default function GameRoom() {
         }
     }, [playerId]);
 
-    // Check if room exists when component mounts
+    // TanStack Query hooks
+    const { data: roomData, isLoading: roomLoading } = useRoomExists(roomId);
+    const { data: gameData, isLoading: gameLoading, error: gameError } = useGameState(
+        roomId,
+        currentScreen === "game"
+    );
+
+    const createRoomMutation = useCreateRoom();
+    const joinRoomMutation = useJoinRoom();
+    const selectHeartMutation = useSelectSecretHeart();
+    const pickHeartMutation = usePickHeart();
+    const resetGameMutation = useResetGame();
+
+    // Extract data from queries
+    const roomExists = roomData?.exists ?? null;
+    const gameState = gameData?.gameState ?? null;
+
+    // Handle game phase changes and reset detection
     useEffect(() => {
-        const checkRoom = async () => {
-            try {
-                const response = await gameActions.getGame(roomId);
-                if (response.gameState) {
-                    setRoomExists(true);
-                    setGameState(response.gameState);
-                } else {
-                    setRoomExists(false);
-                }
-            } catch {
-                setRoomExists(false);
+        if (gameState) {
+            // Check if game was reset by detecting phase change from finished to selecting
+            if (lastGamePhase === "finished" && gameState.gamePhase === "selecting") {
+                setSelectedSecretHeart(null);
+                toast.success("Game reset! Choose your secret hearts again.");
             }
-        };
-
-        if (roomId) {
-            checkRoom();
-        }
-    }, [roomId]);
-
-    // SSE connection for real-time updates when in game
-    useEffect(() => {
-        if (!roomId || currentScreen !== "game") return;
-
-        console.log(`Establishing SSE connection for room: ${roomId}`);
-
-        // Create SSE connection for real-time updates
-        const eventSource = new EventSource(`/api/game/events/${roomId}`);
-
-        eventSource.onopen = () => {
-            console.log(`SSE connection opened for room: ${roomId}`);
-        };
-
-        eventSource.onmessage = (event) => {
-            try {
-                const newGameState = JSON.parse(event.data);
-
-                // Check if game was reset by detecting phase change from finished to selecting
-                if (lastGamePhaseRef.current === "finished" && newGameState.gamePhase === "selecting") {
-                    setSelectedSecretHeart(null);
-                    toast.success("Game reset! Choose your secret hearts again.");
-                }
-
-                setGameState(newGameState);
-                setLastGamePhase(newGameState.gamePhase);
-                lastGamePhaseRef.current = newGameState.gamePhase;
-            } catch (error) {
-                console.error('Error parsing SSE data:', error);
-            }
-        };
-
-        eventSource.onerror = (error) => {
-            console.error('SSE connection error:', error);
-            // EventSource will automatically reconnect
-        };
-
-        // Cleanup on unmount
-        return () => {
-            console.log(`Closing SSE connection for room: ${roomId}`);
-            eventSource.close();
-        };
-    }, [roomId, currentScreen]); // Removed gameState and lastGamePhase from dependencies
-
-    // Set initial game phase
-    useEffect(() => {
-        if (gameState && !lastGamePhase) {
             setLastGamePhase(gameState.gamePhase);
-            lastGamePhaseRef.current = gameState.gamePhase;
         }
     }, [gameState, lastGamePhase]);
 
     const handleNameSubmit = async (name: string) => {
-        setIsLoading(true);
-
         try {
             if (roomExists) {
                 // Join existing room
-                const response = await gameActions.joinRoom(roomId, name, playerId);
-                if (response.success && response.gameState) {
-                    setGameState(response.gameState);
+                const result = await joinRoomMutation.mutateAsync({ roomId, playerName: name, playerId });
+                if (result.success && result.gameState) {
                     setCurrentScreen("game");
                     toast.success(`Joined room: ${roomId}`);
                 } else {
-                    toast.error(response.error || "Failed to join room");
+                    toast.error(result.error || "Failed to join room");
                 }
             } else {
                 // Create new room with this ID
-                const response = await gameActions.createRoomWithId(roomId, name, playerId);
-                if (response.success) {
-                    setGameState(response.gameState);
-                    setRoomExists(true);
+                const result = await createRoomMutation.mutateAsync({ roomId, playerName: name, playerId });
+                if (result.success) {
                     setCurrentScreen("game");
                     toast.success(`Room created: ${roomId}`);
                 } else {
@@ -142,19 +95,17 @@ export default function GameRoom() {
         } catch {
             toast.error("Failed to connect to room");
         }
-        setIsLoading(false);
     };
 
     const handleSelectSecretHeart = async (heartColor: string) => {
         if (!roomId) return;
 
         try {
-            const response = await gameActions.selectSecretHeart(roomId, playerId, heartColor);
-            if (response.gameState) {
-                setGameState(response.gameState);
+            const result = await selectHeartMutation.mutateAsync({ roomId, playerId, heartColor });
+            if (result.gameState) {
                 // Update local state only after successful server response
                 setSelectedSecretHeart(heartColor);
-                if (response.gameState.gamePhase === "playing") {
+                if (result.gameState.gamePhase === "playing") {
                     toast.success("Game started! Take turns picking hearts.");
                 }
             }
@@ -164,23 +115,20 @@ export default function GameRoom() {
     };
 
     const handlePickHeart = async (heartColor: string) => {
-        if (!roomId || !gameState || gameState.currentTurn !== playerId || isPickingHeart) {
+        if (!roomId || !gameState || gameState.currentTurn !== playerId || pickHeartMutation.isPending) {
             return;
         }
 
-        const currentPlayer = gameState.players.find(p => p.id === playerId);
+        const currentPlayer = gameState.players.find((p: any) => p.id === playerId);
         if (currentPlayer?.pickedHearts.includes(heartColor)) {
             toast.error("You already picked this heart!");
             return;
         }
 
-        setIsPickingHeart(true);
         try {
-            const response = await gameActions.pickHeart(roomId, playerId, heartColor);
-            if (response.gameState) {
-                setGameState(response.gameState);
-
-                if (response.isPoisoned) {
+            const result = await pickHeartMutation.mutateAsync({ roomId, playerId, heartColor });
+            if (result.gameState) {
+                if (result.isPoisoned) {
                     toast.error("💀 You picked the poison heart! You lose!");
                 } else {
                     toast.success("✅ Safe! Other player's turn.");
@@ -191,8 +139,6 @@ export default function GameRoom() {
         } catch (error) {
             console.error('Error picking heart:', error);
             toast.error("Failed to pick heart");
-        } finally {
-            setIsPickingHeart(false);
         }
     };
 
@@ -200,9 +146,8 @@ export default function GameRoom() {
         if (!roomId) return;
 
         try {
-            const response = await gameActions.resetGame(roomId);
-            if (response.gameState) {
-                setGameState(response.gameState);
+            const result = await resetGameMutation.mutateAsync(roomId);
+            if (result.gameState) {
                 setSelectedSecretHeart(null);
                 setLastGamePhase("selecting");
                 toast.success("Game reset! Choose your secret hearts again.");
@@ -284,7 +229,7 @@ export default function GameRoom() {
         );
     }
 
-    const currentPlayer = gameState.players.find(p => p.id === playerId);
+    const currentPlayer = gameState.players.find((p: any) => p.id === playerId);
     const isMyTurn = gameState.currentTurn === playerId;
 
     return (
@@ -339,6 +284,14 @@ export default function GameRoom() {
                         >
                             <FaCopy className="mr-1" /> Copy Link
                         </Button>
+                        <Button
+                            onClick={goBack}
+                            variant="outline"
+                            size="sm"
+                            className="bg-red-500/20 backdrop-blur-sm border-red-300/50 text-white hover:bg-red-500/30 transition-all duration-200"
+                        >
+                            <FaArrowLeft className="mr-1" /> Exit Game
+                        </Button>
                     </div>
 
                     <Badge
@@ -362,7 +315,7 @@ export default function GameRoom() {
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
-                            {gameState.players.map((player) => (
+                            {gameState.players.map((player: any) => (
                                 <div
                                     key={player.id}
                                     className={`flex items-center justify-between p-3 rounded-lg transition-all ${player.id === playerId
@@ -382,7 +335,7 @@ export default function GameRoom() {
                                     </div>
                                     <div className="flex items-center space-x-2">
                                         {player.isPoisoned && <span className="text-red-500 text-lg">💀</span>}
-                                        {player.secretHeart && gameState.gamePhase !== "selecting" && (
+                                        {player.secretHeart && gameState.gamePhase === "finished" && (
                                             <FaHeart color={player.secretHeart} size={16} />
                                         )}
                                     </div>
@@ -471,10 +424,11 @@ export default function GameRoom() {
                                 <div className="w-full">
                                     <HeartCircle
                                         myPickedHearts={currentPlayer?.pickedHearts || []}
+                                        allPickedHearts={gameState.players.flatMap((p: any) => p.pickedHearts)}
                                         selectedSecretHeart={selectedSecretHeart}
                                         onHeartClick={handlePickHeart}
                                         canPickHeart={isMyTurn && gameState.gamePhase === "playing"}
-                                        isLoading={isPickingHeart}
+                                        isLoading={pickHeartMutation.isPending}
                                     />
                                     <div className="text-center mt-4">
                                         <div className="inline-flex items-center space-x-4 bg-gray-50 px-4 py-2 rounded-lg">
@@ -494,10 +448,10 @@ export default function GameRoom() {
                                     <div className="flex flex-col sm:flex-row gap-3 justify-center">
                                         <Button
                                             onClick={handleResetGame}
-                                            disabled={isLoading}
+                                            disabled={resetGameMutation.isPending}
                                             className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white font-semibold px-6 py-3"
                                         >
-                                            {isLoading ? "Resetting..." : "🔄 Play Again"}
+                                            {resetGameMutation.isPending ? "Resetting..." : "🔄 Play Again"}
                                         </Button>
                                         <Button
                                             onClick={goBack}

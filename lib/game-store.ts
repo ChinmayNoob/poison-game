@@ -25,13 +25,9 @@ export const HEART_COLORS = [
     "#9C27B0", "#FF6F00", "#4CAF50"
 ];
 
-// Event listener type
-type GameEventListener = (gameState: GameState) => void;
-
 // Use globalThis to persist across serverless function calls
 declare global {
     var gameRooms: Map<string, GameState> | undefined;
-    var gameListeners: Map<string, Set<GameEventListener>> | undefined;
 }
 
 // Initialize global storage
@@ -39,49 +35,7 @@ if (!globalThis.gameRooms) {
     globalThis.gameRooms = new Map<string, GameState>();
 }
 
-if (!globalThis.gameListeners) {
-    globalThis.gameListeners = new Map<string, Set<GameEventListener>>();
-}
-
 const gameRooms = globalThis.gameRooms;
-const gameListeners = globalThis.gameListeners;
-
-// Event emitter functions
-const emitGameUpdate = (roomId: string, gameState: GameState) => {
-    const listeners = gameListeners.get(roomId);
-    if (listeners) {
-        listeners.forEach(listener => {
-            try {
-                listener(gameState);
-            } catch (error) {
-                console.error('Error in game event listener:', error);
-            }
-        });
-    }
-};
-
-export const gameEvents = {
-    addListener: (roomId: string, listener: GameEventListener) => {
-        if (!gameListeners.has(roomId)) {
-            gameListeners.set(roomId, new Set());
-        }
-        gameListeners.get(roomId)!.add(listener);
-    },
-
-    removeListener: (roomId: string, listener: GameEventListener) => {
-        const listeners = gameListeners.get(roomId);
-        if (listeners) {
-            listeners.delete(listener);
-            if (listeners.size === 0) {
-                gameListeners.delete(roomId);
-            }
-        }
-    },
-
-    removeAllListeners: (roomId: string) => {
-        gameListeners.delete(roomId);
-    }
-};
 
 export const gameStore = {
     createRoom: (roomId: string, playerName: string, playerId: string): GameState => {
@@ -95,7 +49,6 @@ export const gameStore = {
 
         gameRooms.set(roomId, gameState);
         console.log(`Room created: ${roomId}, Total rooms: ${gameRooms.size}`);
-        emitGameUpdate(roomId, gameState);
         return gameState;
     },
 
@@ -115,7 +68,6 @@ export const gameStore = {
 
         gameRooms.set(roomId, gameState);
         console.log(`Room created with custom ID: ${roomId}, Total rooms: ${gameRooms.size}`);
-        emitGameUpdate(roomId, gameState);
         return { success: true, gameState };
     },
 
@@ -143,7 +95,6 @@ export const gameStore = {
         gameState.gamePhase = "selecting";
 
         console.log(`Player ${playerName} joined room ${roomId}`);
-        emitGameUpdate(roomId, gameState);
         return { success: true, gameState };
     },
 
@@ -167,7 +118,6 @@ export const gameStore = {
             gameState.currentTurn = gameState.players[0].id;
         }
 
-        emitGameUpdate(roomId, gameState);
         return gameState;
     },
 
@@ -196,7 +146,6 @@ export const gameStore = {
             gameState.currentTurn = otherPlayer.id;
         }
 
-        emitGameUpdate(roomId, gameState);
         return { gameState, isPoisoned };
     },
 
@@ -213,7 +162,6 @@ export const gameStore = {
         gameState.gamePhase = "selecting";
         gameState.winner = null;
 
-        emitGameUpdate(roomId, gameState);
         return gameState;
     },
 

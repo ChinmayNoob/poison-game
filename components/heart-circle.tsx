@@ -7,6 +7,7 @@ import { useState } from "react";
 
 interface HeartCircleProps {
     myPickedHearts: string[];
+    allPickedHearts: string[];
     selectedSecretHeart: string | null;
     onHeartClick: (color: string) => void;
     canPickHeart: boolean;
@@ -15,6 +16,7 @@ interface HeartCircleProps {
 
 export function HeartCircle({
     myPickedHearts,
+    allPickedHearts,
     selectedSecretHeart,
     onHeartClick,
     canPickHeart,
@@ -25,7 +27,7 @@ export function HeartCircle({
     const centerY = 225;
 
     const handleHeartClick = async (color: string) => {
-        if (!canPickHeart || myPickedHearts.includes(color) || isLoading || clickingHeart) {
+        if (!canPickHeart || allPickedHearts.includes(color) || color === selectedSecretHeart || isLoading || clickingHeart) {
             return;
         }
 
@@ -67,10 +69,10 @@ export function HeartCircle({
 
                 {HEART_COLORS.map((color, index) => {
                     const { x, y, ring } = getHeartPosition(index);
-                    const isPicked = myPickedHearts.includes(color);
+                    const isPicked = allPickedHearts.includes(color);
                     const isMySecret = selectedSecretHeart === color;
                     const isClicking = clickingHeart === color;
-                    const isDisabled = !canPickHeart || isPicked || isLoading;
+                    const isDisabled = !canPickHeart || isPicked || isMySecret || isLoading;
 
                     return (
                         <button
@@ -110,7 +112,7 @@ export function HeartCircle({
                                 isPicked
                                     ? "Already picked"
                                     : isMySecret
-                                        ? "Your secret poison heart"
+                                        ? "Your secret poison heart - can't pick this!"
                                         : !canPickHeart
                                             ? "Wait for your turn"
                                             : `Pick ${color} heart`
